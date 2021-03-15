@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "[`date +"%T"`] Secallzones starting... "
-ZONES=`pdnsutil list-all-zones | grep -v "All zonecount"`
+echo "$(date +"%T")] Secallzones starting... "
+ZONES=$(pdnsutil list-all-zones | grep -v "All zonecount")
 while read -r d; do
   pdnsutil show-zone $d | grep presigned >/dev/null 2>&1
   if [ $? -eq 0 ] ; then
@@ -22,9 +22,9 @@ while read -r d; do
 
 done <<< "$ZONES"
 
-echo -n "[`date +"%T"`] Rectifying all zones..."
+echo -n "[$(date +"%T")] Rectifying all zones..."
 pdnsutil rectify-all-zones &> /dev/null && echo " OK."
 
-echo "[`date +"%T"`] Secallzones finished."
+echo "[$(date +"%T")] Secallzones finished."
 
 

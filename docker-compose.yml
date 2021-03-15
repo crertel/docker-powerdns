@@ -1,28 +1,50 @@
-pdns:
-  #build: pdns
-  image: interlegis/powerdns:4.4.0
-  links:
-    - "mysql:mysql"
-  ports:
-    - "53:53"
-    - "53:53/udp"
-    - "8088:8081"
-  environment:
-    - PDNSCONF_API_KEY=a_strong_api_key
-    - PDNSCONF_DNSUPDATE=yes
-    - SECALLZONES_CRONJOB=yes
+version: "3.3"
+services:
+  mysql:
+    image: bitnami/mariadb:10.1.14-r3
+    environment:
+      - MARIADB_ROOT_PASSWORD=mysqlrootpw
+      - MARIADB_REPLICATION_MODE=master
+      - MARIADB_REPLICATION_USER=repl_user
+      - MARIADB_REPLICATION_PASSWORD=repl_password
+      - MARIADB_DATABASE=pdns
+      - MARIADB_USER=pdns
+      - MARIADB_PASSWORD=pdnspw
+    volumes:
+      - dnsmasterdb:/bitnami/mariadb
+    ports:
+      - 3306:3306
+    healthcheck:      
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 30s
+      retries: 3
 
-mysql:
-  image: bitnami/mariadb:10.1.14-r3
-  environment:
-    - MARIADB_ROOT_PASSWORD=mysqlrootpw
-    - MARIADB_REPLICATION_MODE=master
-    - MARIADB_REPLICATION_USER=repl_user
-    - MARIADB_REPLICATION_PASSWORD=repl_password
-    - MARIADB_DATABASE=pdns
-    - MARIADB_USER=pdns
-    - MARIADB_PASSWORD=pdnspw
-  volumes:
-    - dnsmasterdb:/bitnami/mariadb
-  ports:
-    - 3306:3306
+  pdns:
+    build: pdns    
+    depends_on: 
+      - mysql        
+    ports:
+      - "5053:53"
+      - "5053:53/udp"
+      - "8088:8081"
+    environment:
+      - PDNSCONF_API_KEY=a_strong_api_key
+      - PDNSCONF_DNSUPDATE=yes
+      - SECALLZONES_CRONJOB=yes
+      - MYSQL_ENV_MARIADB_USER=pdns
+      - MYSQL_ENV_MARIADB_DATABASE=pdns
+      - MYSQL_ENV_MARIADB_PASSWORD=pdnspw
+  
+  admin:
+    image: ngoduykhanh/powerdns-admin
+    depends_on:
+      - pdns
+    volumes:
+      - powerdns-data:/data
+    ports:
+      - "9191:80"
+
+volumes:
+  powerdns-data:
+  dnsmasterdb:  

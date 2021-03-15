@@ -1,31 +1,32 @@
 #!/bin/bash
 
+#set -eou pipefail
+
 mkdir -p /etc/powerdns/pdns.d
 
-PDNSVARS=`echo ${!PDNSCONF_*}`
+PDNSVARS=$(echo ${!PDNSCONF_*})
 touch /etc/powerdns/pdns.conf
 
-if [ ! -z $MYSQL_ENV_MARIADB_DATABASE ]; then
-   PDNSCONF_GMYSQL_USER=$MYSQL_ENV_MARIADB_USER 
-   PDNSCONF_GMYSQL_DBNAME=$MYSQL_ENV_MARIADB_DATABASE 
-   PDNSCONF_GMYSQL_PASSWORD=$MYSQL_ENV_MARIADB_PASSWORD
-else 
-   PDNSCONF_GMYSQL_USER=$MYSQL_ENV_MYSQL_USER
-   PDNSCONF_GMYSQL_DBNAME=$MYSQL_ENV_MYSQL_DATABASE
-   PDNSCONF_GMYSQL_PASSWORD=$MYSQL_ENV_MYSQL_PASSWORD
-fi
+
+PDNSCONF_GMYSQL_USER=$MYSQL_ENV_MARIADB_USER 
+PDNSCONF_GMYSQL_DBNAME=$MYSQL_ENV_MARIADB_DATABASE 
+PDNSCONF_GMYSQL_PASSWORD=$MYSQL_ENV_MARIADB_PASSWORD
 
 
+truncate -s 0 /etc/powerdns/pdns.conf
 for var in $PDNSVARS; do
-  varname=`echo ${var#"PDNSCONF_"} | awk '{print tolower($0)}' | sed 's/_/-/g'`
-  value=`echo ${!var} | sed 's/^$\(.*\)/\1/'`
+  varname=$(echo ${var#"PDNSCONF_"} | awk '{print tolower($0)}' | sed 's/_/-/g')
+  value=$(echo ${!var} | sed 's/^$\(.*\)/\1/')
   echo "$varname=$value" >> /etc/powerdns/pdns.conf
 done
 
+#  cat >/etc/powerdns/pdns.d/api.conf <<EOF
 if [ ! -z $PDNSCONF_API_KEY ]; then
-  cat >/etc/powerdns/pdns.d/api.conf <<EOF
+  cat >> /etc/powerdns/pdns.conf <<EOF
 api=yes
+api-key=$PDNSCONF_API_KEY
 webserver=yes
+webserver-port=8081
 webserver-address=0.0.0.0
 webserver-allow-from=0.0.0.0/0
 EOF
@@ -45,7 +46,7 @@ mysqlcheck() {
     fi
   done
 
-  count=`mysql -h mysql -u $PDNSCONF_GMYSQL_USER -p$PDNSCONF_GMYSQL_PASSWORD -e "select count(*) from information_schema.tables where table_type='BASE TABLE' and table_schema='$PDNSCONF_GMYSQL_DBNAME';" | tail -1`
+  count=$(mysql -h mysql -u $PDNSCONF_GMYSQL_USER -p$PDNSCONF_GMYSQL_PASSWORD -e "select count(*) from information_schema.tables where table_type='BASE TABLE' and table_schema='$PDNSCONF_GMYSQL_DBNAME';" | tail -1)
   if [ "$count" == "0" ]; then
     echo "Database is empty. Importing PowerDNS schema..."
     mysql -h mysql -u $PDNSCONF_GMYSQL_USER -p$PDNSCONF_GMYSQL_PASSWORD $PDNSCONF_GMYSQL_DBNAME < /usr/share/doc/pdns-backend-mysql/schema.mysql.sql && echo "Import done."
